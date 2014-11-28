@@ -233,5 +233,4 @@ define( [
     } ), 'osg', 'RenderStage' );
 
     return RenderStage;
-
 } );
