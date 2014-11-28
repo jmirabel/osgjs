@@ -54,6 +54,7 @@ define( [
         this._renderBinStack = [];
         this.visitorType = NodeVisitor.CULL_VISITOR;
 
+        this.nodePathIDHash = '';
         this._identityMatrix = Matrix.create();
 
         this._renderer = undefined;
@@ -459,88 +460,72 @@ define( [
     CullVisitor.prototype[ Geometry.typeID ] = ( function () {
             var tempVec = Vec3.create();
 
-            return function ( node ) {
-
-
-                var modelview = this.getCurrentModelViewMatrix();
-                var bb = node.getBoundingBox();
-                if ( this._computeNearFar && bb.valid() ) {
-                    if ( !this.updateCalculatedNearFar( modelview, node ) ) {
-                        return;
-                    }
-                }
-
-                var stateset = node.getStateSet();
-                if ( stateset ) this.pushStateSet( stateset );
-
-
-                // using modelview is not a pb because geometry
-                // is a leaf node, else traversing the graph would be an
-                // issue because we use modelview after
-                this.handleCullCallbacksAndTraverse( node );
-
-                var leafs = this._currentStateGraph.leafs;
-                if ( leafs.length === 0 ) {
-                    this._currentRenderBin.addStateGraph( this._currentStateGraph );
-                }
-
-                var leaf = this.createOrReuseRenderLeaf();
-                var depth = 0;
-                if ( bb.valid() ) {
-                    depth = this.distance( bb.center( tempVec ), modelview );
-                }
-                if ( isNaN( depth ) ) {
-                    Notify.warn( 'warning geometry has a NaN depth, ' + modelview + ' center ' + bb.center() );
-                } else {
-
-                    leaf.init( this._currentStateGraph,
-                        node,
-                        this.getCurrentProjectionMatrix(),
-                        this.getCurrentViewMatrix(),
-                        this.getCurrentModelViewMatrix(),
-                        this.getCurrentModelWorldMatrix(),
-                        depth );
-
-                    leafs.push( leaf );
-                }
-
-                ////////// Reprojection /////////////////////
-                //  multi-Father Proofness by hashing node path traversal
-                var hash = '';
-                this.getNodePath().forEach( function ( a ) {
-                    hash += a.getInstanceID() + '_'; // without the _ you get hash collisions
-                } );
-                if ( !node._history ) {
-                    node._history = {};
-                }
-                var history = node._history[ hash ];
-                if ( !history ) {
-                    history = {};
-                    node._history[ hash ] = history;
-                    history[ 'view' ] = Matrix.create();
-                    history[ 'prevView' ] = Matrix.create();
-                    history[ 'proj' ] = Matrix.create();
-                    history[ 'prevProj' ] = Matrix.create();
-                }
-                var view = history[ 'view' ];
-                var prevView = history[ 'prevView' ];
-                var proj = history[ 'proj' ];
-                var prevProj = history[ 'prevProj' ];
-
-                Matrix.copy( view, prevView );
-                Matrix.copy( leaf._modelView, view );
-                Matrix.copy( proj, prevProj );
-                Matrix.copy( leaf._projection, proj );
-
-                leaf._previousModelView = prevView;
-                leaf._previousProjection = prevProj;
-                ////////// Reprojection /////////////////////
-
-                leafs.push( leaf );
+            var hash = '';
+            this.getNodePath().forEach( function ( a ) {
+                hash += a.getInstanceID() + '';
+            } );
+            if ( !node._history ) {
+                node._history = {};
+            }
+            if ( !node._history[ hash ] ) {
+                node._history[ hash ] = {};
+                node._history[ hash ][ 'view' ] = Matrix.create();
+                node._history[ hash ][ 'prevView' ] = Matrix.create();
+                node._history[ hash ][ 'proj' ] = Matrix.create();
+                node._history[ hash ][ 'prevProj' ] = Matrix.create();
             }
 
-        };
-    } )();
+            var modelview = this.getCurrentModelViewMatrix();
+            var bb = node.getBoundingBox();
+            if ( this._computeNearFar && bb.valid() ) {
+                if ( !this.updateCalculatedNearFar( modelview, node ) ) {
+                    return;
+                }
+            }
+
+            leaf.init( this._currentStateGraph,
+                node,
+                this.getCurrentProjectionMatrix(),
+                this.getCurrentViewMatrix(),
+                this.getCurrentModelViewMatrix(),
+                this.getCurrentModelWorldMatrix(),
+                depth );
+
+            leafs.push( leaf );
+        }
+
+        ////////// Reprojection /////////////////////
+        //  multi-Father Proofness by hashing node path traversal
+        var hash = ''; this.getNodePath().forEach( function ( a ) {
+            hash += a.getInstanceID() + '_'; // without the _ you get hash collisions
+        } );
+        if ( !node._history ) {
+            node._history = {};
+        }
+        var history = node._history[ hash ];
+        if ( !history ) {
+            history = {};
+            node._history[ hash ] = history;
+            history[ 'view' ] = Matrix.create();
+            history[ 'prevView' ] = Matrix.create();
+            history[ 'proj' ] = Matrix.create();
+            history[ 'prevProj' ] = Matrix.create();
+        }
+        var view = history[ 'view' ];
+        var prevView = history[ 'prevView' ];
+        var proj = history[ 'proj' ];
+        var prevProj = history[ 'prevProj' ];
+
+        Matrix.copy( view, prevView ); Matrix.copy( leaf._modelView, view ); Matrix.copy( proj, prevProj ); Matrix.copy( leaf._projection, proj );
+
+        leaf._previousModelView = prevView; leaf._previousProjection = prevProj;
+        ////////// Reprojection /////////////////////
+
+        leafs.push( leaf );
+    }
+
+};
+} )();
 
 return CullVisitor;
 } );
