@@ -247,9 +247,6 @@ define( [
 
 
     Composer.Filter.defaultVertexShader = [
-        '#ifdef GL_ES',
-        'precision highp float;',
-        '#endif',
         'attribute vec3 Vertex;',
         'attribute vec2 TexCoord0;',
         'varying vec2 FragTexCoord0;',

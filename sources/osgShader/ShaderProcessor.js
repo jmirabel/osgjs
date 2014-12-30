@@ -30,7 +30,8 @@ define( [
     ShaderProcessor.prototype = {
         _shadersText: {},
         _shadersList: {},
-        _globalDefaultprecision: '#ifdef GL_FRAGMENT_PRECISION_HIGH\n precision highp float;\n #else\n precision mediump float;\n#endif',
+        _globalDefaultDefines: '',
+        _globalDefaultprecision: '#ifdef GL_FRAGMENT_PRECISION_HIGH\n precision highp float;\nprecision highp int;\n #else\n precision mediump float;\nprecision mediump int\n#endif',
         _debugLines: false,
         _includeR: /#pragma include "([^"]+)"/g,
         _includeCondR: /#pragma include (["^+"]?["\ "[a-zA-Z_0-9](.*)"]*?)/g,
