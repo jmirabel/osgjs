@@ -177,6 +177,7 @@ define( [
                 // check if we want to render on screen
                 var camera = new Camera();
                 camera.setStateSet( element.filter.getStateSet() );
+                element.filter.camera = camera;
 
                 var texture;
                 var quad;
