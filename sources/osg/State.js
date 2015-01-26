@@ -261,6 +261,24 @@ define( [
             };
         } )(),
 
+        applyPrevModelViewMatrix: function ( matrix ) {
+
+            if ( this._prevModelViewMatrix === matrix ) return false;
+
+            var program = this.getLastProgramApplied();
+
+            var mu = this.prevModelViewMatrix;
+            var mul = program._uniformsCache[ mu.name ];
+            if ( mul ) {
+                Matrix.copy( matrix, mu.get() );
+                mu.dirty();
+                mu.apply( this.getGraphicContext(), mul );
+            }
+
+            this._prevModelViewMatrix = matrix;
+            return true;
+        },
+
         applyProjectionMatrix: function ( matrix ) {
 
             if ( this._projectionMatrix === matrix ) return;
@@ -268,6 +286,21 @@ define( [
             this._projectionMatrix = matrix;
             var program = this.getLastProgramApplied();
             var mu = this.projectionMatrix;
+
+            var mul = program._uniformsCache[ mu.name ];
+            Matrix.copy( matrix, mu.get() );
+            mu.dirty();
+            mu.apply( this.getGraphicContext(), mul );
+
+        },
+
+        applyPrevProjectionMatrix: function ( matrix ) {
+
+            if ( this._prevProjectionMatrix === matrix ) return;
+
+            this._prevProjectionMatrix = matrix;
+            var program = this.getLastProgramApplied();
+            var mu = this.prevProjectionMatrix;
 
             var mul = program._uniformsCache[ mu.name ];
             Matrix.copy( matrix, mu.get() );
