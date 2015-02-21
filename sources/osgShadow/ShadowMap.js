@@ -2,6 +2,7 @@ define( [
     'osg/BoundingBox',
     'osg/Camera',
     'osg/ComputeBoundsVisitor',
+    'osg/CullFace',
     'osg/FrameBufferObject',
     'osg/Matrix',
     'osg/Notify',
@@ -21,7 +22,7 @@ define( [
     'osgShadow/ShadowFrustumIntersection',
     'osgShadow/ShadowTechnique',
     'osgShadow/ShadowTexture'
-], function ( BoundingBox, Camera, ComputeBoundsVisitor, FrameBufferObject, Matrix, Notify, Program, Shader, StateAttribute, StateSet, Texture, Transform, Uniform, MACROUTILS, Vec3, Vec4, Viewport, ShaderProcessor, ShadowAttribute, ShadowFrustumIntersection, ShadowTechnique, ShadowTexture ) {
+], function ( BoundingBox, Camera, ComputeBoundsVisitor, CullFace, FrameBufferObject, Matrix, Notify, Program, Shader, StateAttribute, StateSet, Texture, Transform, Uniform, MACROUTILS, Vec3, Vec4, Viewport, ShaderProcessor, ShadowAttribute, ShadowFrustumIntersection, ShadowTechnique, ShadowTexture ) {
 
     'use strict';
 
@@ -739,6 +740,9 @@ define( [
 
             var castUniforms = this._casterStateSet.getUniformList();
             castUniforms[ 'Shadow_DepthRange' ].getUniform().set( this._depthRange );
+
+            this._casterStateSet.setAttributeAndModes( new CullFace( CullFace.NONE ) );
+
 
             this._texture.setViewMatrix( view );
             this._texture.setProjectionMatrix( projection );
