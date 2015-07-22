@@ -2,6 +2,7 @@ define( [
     'osg/Notify',
     'osg/Utils',
     'osg/Node',
+    'osg/CullFace',
     'osg/Depth',
     'osg/Texture',
     'osg/Camera',
@@ -17,7 +18,7 @@ define( [
     'osg/TransformEnums',
     'osg/Vec2',
     'osg/Vec3'
-], function ( Notify, MACROUTILS, Node, Depth, Texture, Camera, FrameBufferObject, Viewport, Matrix, Uniform, StateSet, Program, Shader, Shape, StateAttribute, TransformEnums, Vec2, Vec3 ) {
+], function ( Notify, MACROUTILS, Node, CullFace, Depth, Texture, Camera, FrameBufferObject, Viewport, Matrix, Uniform, StateSet, Program, Shader, Shape, StateAttribute, TransformEnums, Vec2, Vec3 ) {
 
     'use strict';
 
@@ -55,6 +56,12 @@ define( [
         this._stack = [];
         this._renderToScreen = false;
         this._dirty = false;
+
+        // list of rtt created by composer
+        this._textureRTT = [];
+        // list of camera created by composer
+        this._cameraRTT = [];
+
         var UpdateCallback = function () {
 
         };
@@ -67,7 +74,9 @@ define( [
             }
         };
         this.setUpdateCallback( new UpdateCallback() );
+        // disable unecessarry drawing/states/check
         this.getOrCreateStateSet().setAttributeAndModes( new Depth( 'DISABLE' ) );
+        this.getOrCreateStateSet().setAttributeAndModes( new CullFace( 'BACK' ) );
     };
 
     Composer.prototype = MACROUTILS.objectInherit( Node.prototype, {
@@ -120,6 +129,8 @@ define( [
             this.removeChildren();
             var lastTextureResult;
             var self = this;
+            self._textureRTT = [];
+            self._cameraRTT = [];
 
             this._stack.forEach( function ( element, i, array ) {
 
@@ -165,57 +176,83 @@ define( [
                     }
                 }
 
-                // check if we want to render on screen
-                var camera = new Camera();
-                camera.setStateSet( element.filter.getStateSet() );
 
-                var texture;
-                var quad;
+                var camera = new Camera();
+                self._cameraRTT.push( camera );
+                camera.setStateSet( stateSet );
+
+
+                var textureResult;
+                // check if we want to render on screen
                 if ( lastFilterRenderToScreen === true ) {
                     w = self._renderToScreenWidth;
                     h = self._renderToScreenHeight;
                 } else {
                     camera.setRenderOrder( Camera.PRE_RENDER, 0 );
-                    texture = element.texture;
+                    textureResult = element.texture;
                     var textureTarget = element.textureTarget;
-                    if ( texture === undefined ) {
-                        texture = new Texture();
-                        texture.setTextureSize( w, h );
+                    if ( textureResult === undefined ) {
+                        textureResult = new Texture();
+                        textureResult.setName( 'composer Rtt ' + element.filter._fragmentName );
+                        textureResult.setTextureSize( w, h );
                         textureTarget = Texture.TEXTURE_2D;
+                        self._textureRTT.push( textureResult );
                     }
-                    camera.attachTexture( FrameBufferObject.COLOR_ATTACHMENT0, texture, textureTarget );
+                    camera.attachTexture( FrameBufferObject.COLOR_ATTACHMENT0, textureResult, textureTarget );
 
                 }
 
                 var vp = new Viewport( 0, 0, w, h );
                 camera.setReferenceFrame( TransformEnums.ABSOLUTE_RF );
                 camera.setViewport( vp );
+
+                // FIXME: not really useful, but osgjs keep pushing projection matrix
+                // and maybe some old code still use it
                 Matrix.makeOrtho( 0, 1, 0, 1, -5, 5, camera.getProjectionMatrix() );
 
-                quad = Shape.createTexturedFullScreenFakeQuadGeometry();
+                var quad = Shape.createTexturedFullScreenFakeQuadGeometry();
 
                 if ( element.filter.buildGeometry !== undefined )
                     quad = element.filter.buildGeometry( quad );
 
                 quad.setName( 'composer layer' );
 
-                lastTextureResult = texture;
+                // if rendering into texture framebuffer
+                if ( textureResult ) {
 
-                // assign the result texture to the next stateset
-                if ( i + 1 < array.length ) {
-                    array[ i + 1 ].filter.getStateSet().setTextureAttributeAndModes( 0, lastTextureResult );
+                    /* develblock:start */
+                    // check for bad texture mapping
+                    for ( var k = 0, lt = stateSet.getNumTextureAttributeLists(); k < lt; k++ ) {
+                        var textureBinded = stateSet.getTextureAttribute( k, 'Texture' );
+                        Notify.assert( textureResult !== textureBinded, 'Composer: write/read at the same time on a texture is undefined behaviour' );
+
+                    }
+                    /* develblock:end */
+
+                    // assign the result texture to the next stateset
+                    if ( i + 1 < array.length ) {
+                        array[ i + 1 ].filter.getStateSet().setTextureAttributeAndModes( 0, textureResult );
+                    }
+
                 }
+                lastTextureResult = textureResult;
+
+
 
                 camera.addChild( quad );
                 element.filter.getStateSet().addUniform( Uniform.createFloat2( [ w, h ], 'RenderSize' ) );
 
-                // Optimization, no need to clear
-                camera.setClearMask( 0x00000000 );
+                // Optimization, no need to clear,
+                // unless we know we'll have transparent parts
+                // which is a special case rather than the default
+                camera.setClearMask( 0 );
 
-
+                // set camera name to filter name
                 camera.setName( 'Composer Pass' + i );
                 root.addChild( camera );
             } );
+            // reference to the resulting texture
+            // undefined if rendering directly to screen
             this._resultTexture = lastTextureResult;
         }
     } );
@@ -254,19 +291,32 @@ define( [
         }
     };
 
-
+    // default means you do use the special optimized full screen triangle
+    // dubbed fakeFullscreenQuad
+    // no need of modelView, projection, nor texcoord
     Composer.Filter.defaultVertexShader = [
+        'attribute vec3 Vertex;',
+        'varying vec2 FragTexCoord0;',
+        'void main(void) {',
+        '  gl_Position = vec4(Vertex*2.0 - 1.0,1.0);',
+        '  FragTexCoord0 = Vertex.xy;',
+        '}',
+        ''
+    ].join( '\n' );
+    /*
+    Composer.Filter.defaultVertexShaderOld = [
         'attribute vec3 Vertex;',
         'attribute vec2 TexCoord0;',
         'varying vec2 FragTexCoord0;',
+        'uniform mat4 ModelViewMatrix;',
         'uniform mat4 ProjectionMatrix;',
         'void main(void) {',
-        '  gl_Position = ProjectionMatrix * vec4(Vertex,1.0);',
+        '  gl_Position = ProjectionMatrix * (ModelViewMatrix * vec4(Vertex,1.0));',
         '  FragTexCoord0 = TexCoord0;',
         '}',
         ''
     ].join( '\n' );
-
+*/
     Composer.Filter.defaultFragmentShaderHeader = [
         '#ifdef GL_FRAGMENT_PRECISION_HIGH\n precision highp float;\n #else\n precision mediump float;\n#endif',
         'varying vec2 FragTexCoord0;',
@@ -382,9 +432,9 @@ define( [
                             var uniformValue = this._uniforms[ uniformName ];
                             if ( uniformType.search( 'sampler' ) !== -1 ) {
                                 this._stateSet.setTextureAttributeAndModes( unitIndex, uniformValue );
-                                //uniform = Uniform.createInt1( unitIndex, uniformName );
+                                uniform = Uniform.createInt1( unitIndex, uniformName );
                                 unitIndex++;
-                                //this._stateSet.addUniform( uniform );
+                                this._stateSet.addUniform( uniform );
                             } else {
                                 if ( Uniform.isUniform( uniformValue ) ) {
                                     uniform = uniformValue;
