@@ -288,6 +288,7 @@ define( [
             this.setTexturePrecision( shadowSettings.textureType );
 
             this.setFakePCF( shadowSettings.fakePCF );
+            this.setRotateOffset( shadowSettings.rotateOffset );
             this.setKernelSizePCF( shadowSettings.kernelSizePCF );
             this.setAlgorithm( shadowSettings.algorithm );
             this.setBias( shadowSettings.bias );
@@ -362,6 +363,15 @@ define( [
             }
         },
 
+        getRotateOffset: function () {
+            return this._shadowReceiveAttribute.getRotateOffset();
+        },
+        setRotateOffset: function ( value ) {
+            if ( this._shadowReceiveAttribute.getRotateOffset() !== value ) {
+                this._shadowReceiveAttribute.setRotateOffset( value );
+            }
+        },
+
         setShadowedScene: function ( shadowedScene ) {
             ShadowTechnique.prototype.setShadowedScene.call( this, shadowedScene );
             this._receivingStateset = this._shadowedScene.getOrCreateStateSet();
@@ -420,45 +430,25 @@ define( [
 
             this._shadowReceiveAttribute.setLightNumber( lightNumber );
 
-            this._receivingStateset.setAttributeAndModes( this._shadowReceiveAttribute, StateAttribute.ON | StateAttribute.OVERRIDE );
 
 
+            var fullOverride = StateAttribute.OVERRIDE | StateAttribute.ON;
 
-            // prevent unnecessary texture bindings
 
-            if ( !ShadowMap.BlankTexture ) {
-                ShadowMap.BlankTexture = new Texture();
-                ShadowMap.BlankTexture.setName( 'emptyTex' );
-            }
-            var blankTexture = ShadowMap.BlankTexture;
+            this._receivingStateset.setAttributeAndModes( this._shadowReceiveAttribute, fullOverride );
+
 
             // Mandatory: prevent binding shadow textures themselves (shadowedScene stateSet is applied
             // just above in stateset hierarchy
             // that would mean undefined values as it would be read/write access...
-            this._casterStateSet.setTextureAttributeAndModes( this._textureUnit, blankTexture, StateAttribute.OFF | StateAttribute.OVERRIDE | StateAttribute.PROTECTED );
+            this._casterStateSet.setTextureAttributeAndModes( this._textureUnit, Texture.textureNull, StateAttribute.ON | StateAttribute.OVERRIDE | StateAttribute.PROTECTED );
 
-            // TODO: optimize: have a "don't touch current Texture stateAttribute"
-            // on ALL texture unit but alpha max texture for Depth/Normal/etc renders
-
-            // TODO: actually get the real max texture unit from webglCaps
-            //var shouldGetMaxTextureUnits = 32;
-            //
-            // TODO:: Should handle the alpha_mask that uses a texture
-            // case somehow...
-            // deduce from shader compil ?
-            //for ( var k = 0; k < shouldGetMaxTextureUnits; k++ ) {
-            //    this._casterStateSet.setTextureAttributeAndModes( k, blankTexture, StateAttribute.OFF | StateAttribute.OVERRIDE | StateAttribute.PROTECTED );
-            //}
-
-
-            //            var casterProgram = this.getShadowCasterShaderProgram();
-            //            this.setShadowCasterShaderProgram( casterProgram );
 
             // add shadow texture to the receivers
             // should make sure somehow that
             // alpha blender transparent receiver doens't use it
             // compiler wise at least
-            this._receivingStateset.setTextureAttributeAndModes( this._textureUnit, this._texture, StateAttribute.ON | StateAttribute.OVERRIDE );
+            this._receivingStateset.setTextureAttributeAndModes( this._textureUnit, this._texture, fullOverride );
 
             this._dirty = false;
         },

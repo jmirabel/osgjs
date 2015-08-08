@@ -32,6 +32,7 @@
             'fov': 50,
             'kernelSizePCF': '1Tap(4texFetch)',
             'fakePCF': false,
+            'rotateOffset': false,
             'exponent': 80.0,
             'exponent1': 0.33,
 
@@ -391,6 +392,9 @@
             controller.onChange( this.updateShadow.bind( this ) );
 
             controller = pcfFolder.add( this._config, 'fakePCF' );
+            controller.onChange( this.updateShadow.bind( this ) );
+
+            controller = pcfFolder.add( this._config, 'rotateOffset' );
             controller.onChange( this.updateShadow.bind( this ) );
 
 
@@ -753,6 +757,7 @@
                 shadowSettings.epsilonVSM = this._config[ 'epsilonVSM' ];
                 shadowSettings.kernelSizePCF = this._config[ 'kernelSizePCF' ];
                 shadowSettings.fakePCF = this._config[ 'fakePCF' ];
+                shadowSettings.rotateOffset = this._config[ 'rotateOffset' ];
             }
 
 

@@ -90,6 +90,12 @@ define( [
         },
         computeShader: function () {
             var inp = this._inputs;
+
+            var algo = this._shadowCast.getAlgorithm();
+            if ( algo === 'NONE' || algo === 'PCF' ) {
+                return ShaderUtils.callFunction( 'computeShadowDepth', this._outputs.color, [ inp.fragEye, inp.shadowDepthRange ] );
+            }
+
             return ShaderUtils.callFunction( 'computeShadowDepth', this._outputs.color, [ inp.fragEye, inp.shadowDepthRange, inp.exponent0, inp.exponent1 ] );
         }
 

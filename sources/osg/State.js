@@ -515,8 +515,10 @@ define( [
             // if the the stack has changed but the last applied attribute is the same
             // then we dont need to apply it again
             if ( attributeStack.lastApplied !== attribute ) {
-                gl.activeTexture( gl.TEXTURE0 + textureUnit );
-                attribute.apply( this, textureUnit );
+                if ( !attribute._textureNull ) {
+                    gl.activeTexture( gl.TEXTURE0 + textureUnit );
+                    attribute.apply( this, textureUnit );
+                }
                 attributeStack.lastApplied = attribute;
             }
 

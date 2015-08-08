@@ -77,8 +77,9 @@ define( [
 
             }.bind( this ) );
 
-
+            // tells shader where to find it
             var name = 'ShadowTexture' + unit;
+            this._nameSampler = name;
             var uniform = Uniform.createInt1( unit, name );
             uniforms[ 'ShadowTexture' + unit ] = uniform;
 
@@ -88,6 +89,9 @@ define( [
             return obj.uniforms[ unit ];
         },
 
+        getSamplerName: function () {
+            return this._nameSampler;
+        },
         setViewMatrix: function ( viewMatrix ) {
             this._viewMatrix = viewMatrix;
         },

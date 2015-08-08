@@ -190,6 +190,7 @@ define( [
 
         getOrCreateProgram: ( function () {
             // TODO: double check GC impact of this stack
+            // TODO: find a way to get a hash dirty/cache on stateAttribute
             var textureAttributes = [];
             var attributes = [];
 

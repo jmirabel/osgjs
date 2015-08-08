@@ -116,7 +116,8 @@ define( [
                     // if not defined we do not include
                     var found = false;
                     var defines = inputsDefines.map( function ( defineString ) {
-                        return _self._defineR.test( defineString ) && defineString.split( ' ' )[ 1 ];
+                        // find '#define', remove duplicate whitespace, split on space and return the define Text
+                        return _self._defineR.test( defineString ) && defineString.replace( /\s+/g, ' ' ).split( ' ' )[ 1 ];
                     } );
 
                     for ( var i = 1; i < includeOpt.length && !found; i++ ) {

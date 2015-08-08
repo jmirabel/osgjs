@@ -317,10 +317,12 @@ define( [
             var exist = this._variables[ nameID ];
             if ( exist ) {
                 // see comment in Variable function
-                if ( exist.getType() !== type ) {
+                if ( exist.getType() === type ) {
+                    return exist;
+                }
+                if ( exist.getType() === 'sampler2D' && type !== 'sampler2D' ) {
                     Notify.error( 'Same uniform, but different type' );
                 }
-                return exist;
             }
 
             var v = this.getNode( 'Uniform', type, nameID, size );
@@ -627,21 +629,14 @@ define( [
 
             var samplerName = 'Texture' + unit.toString();
             var textureSampler = this.getVariable( samplerName );
-
             if ( textureSampler === undefined ) {
-
-                if ( texture.className() === 'Texture' ) {
-                    textureSampler = this.getOrCreateSampler( 'sampler2D', samplerName );
-                } else if ( texture.className() === 'TextureCubeMap' ) {
-                    textureSampler = this.getOrCreateSampler( 'samplerCube', samplerName );
-                } else if ( texture.className() === 'ShadowTexture' ) {
-                    textureSampler = this.getOrCreateSampler( 'sampler2D', samplerName );
-                    // return now to prevent creation of useless FragTexCoord
-                    //( shadow creates its own texcoord)
-                    return;
-                }
-
-
+                textureSampler = this.getOrCreateSampler( 'sampler2D', samplerName );
+            } else if ( texture.className() === 'TextureCubeMap' ) {
+                textureSampler = this.getOrCreateSampler( 'samplerCube', samplerName );
+            } else if ( texture.className() === 'ShadowTexture' ) {
+                return;
+                //textureSampler = this.getOrCreateSampler( 'sampler2D', samplerName );
+                // return;
             }
 
             // texture coordinates are automatically mapped to unit texture number
@@ -742,25 +737,11 @@ define( [
             inputs = MACROUTILS.objectMix( inputs, shadowUniforms );
 
             // shadowTexture  Attribute uniforms AND varying
-            var tex;
             // TODO: better handle multi texture shadow (CSM/PSM/etc.)
             for ( k = 0; k < shadowTextures.length; k++ ) {
-
                 shadowTexture = shadowTextures[ k ];
                 if ( shadowTexture ) {
-                    tex = this.getOrCreateSampler( 'sampler2D', shadowTexture.getName() );
-                    inputs.shadowTexture = tex;
-
-                    // per texture uniforms
-                    var shadowTextureUniforms = this.getOrCreateTextureStateAttributeUniforms( shadowTexture, 'shadowTexture', k );
-                    inputs = MACROUTILS.objectMix( inputs, shadowTextureUniforms );
-
-                    var shadowVarying = {
-                        vertexWorld: vertexWorld,
-                        lightEyeDir: inputs.lightEyeDir,
-                        lightNDL: inputs.lightNDL
-                    };
-                    inputs = MACROUTILS.objectMix( inputs, shadowVarying );
+                    this.createShadowTextureInputVarying( shadowTexture, inputs, vertexWorld, k );
                 }
 
             }
@@ -775,6 +756,34 @@ define( [
 
         },
 
+        createShadowTextureInputVarying: function ( shadowTexture, inputs, vertexWorld, tUnit ) {
+            var shadowTexSamplerName = 'ShadowTexture' + tUnit;
+
+            // per texture uniforms
+            var shadowTextureUniforms = this.getOrCreateTextureStateAttributeUniforms( shadowTexture, 'shadowTexture', tUnit );
+
+            // UGLY REMOVAL
+            // TODO: create a specific texture getuniform for compiler
+            var id = shadowTextureUniforms[ 'shadowTexture' + shadowTexSamplerName ].getID();
+            shadowTextureUniforms[ 'shadowTexture' + shadowTexSamplerName ] = undefined;
+            this._variables[ shadowTexSamplerName ] = undefined;
+            this._activeNodeList[ id ] = undefined;
+            delete this._activeNodeList[ id ];
+            // end UGLY REMOVAL
+
+            inputs = MACROUTILS.objectMix( inputs, shadowTextureUniforms );
+
+            var tex = this.getOrCreateSampler( 'sampler2D', shadowTexSamplerName );
+            inputs.shadowTexture = tex;
+
+            var shadowVarying = {
+                vertexWorld: vertexWorld,
+                lightEyeDir: inputs.lightEyeDir,
+                lightNDL: inputs.lightNDL
+            };
+            inputs = MACROUTILS.objectMix( inputs, shadowVarying );
+            return inputs;
+        },
         // Shared var between lights and shadows
         createCommonLightingVars: function ( materials, enumLights, numLights ) {
 
