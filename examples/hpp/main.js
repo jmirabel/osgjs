@@ -43,22 +43,18 @@
 
       this.playPath_timeout = function (i) {
         if (i < configurations.length) {
-          applyConfig (i);
-          i++;
-          if (i < configurations.length) {
+          if (i + 1 < configurations.length) {
             var me = this;
             window.setTimeout (function () {
-              me.playPath_timeout (i)
-            }, 100);
+              me.playPath_timeout (i+1)
+            }, me.timePath.value * 10);
           }
+          applyConfig (i);
         }
       };
 
       this.sliderPath = function () {
-        // this is the input range element
-        if (parseInt(this.value) > parseInt(this.max)) {
-          this.value = this.max;
-        }
+        // "this" is the input range element
         applyConfig (Math.floor (this.value * (configurations.length-1) / this.max));
       };
     }
@@ -208,9 +204,9 @@
         viewer.run();
 
         document.getElementById ("loadConfig").addEventListener ('click', toolbar.load, true);
-        /*document.getElementById ("playPath")  .addEventListener ('click', toolbar.playPath, true);*/
         document.getElementById ("playPath")  .addEventListener ('click', function (e) {toolbar.playPath()}, true);
         document.getElementById ("sliderPath").addEventListener ('input', toolbar.sliderPath, true);
+        toolbar.timePath = document.getElementById ("timePath");
     };
 
     window.addEventListener( 'load', onLoad, true );
